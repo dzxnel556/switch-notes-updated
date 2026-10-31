@@ -7,26 +7,28 @@ endif
 TOPDIR ?= $(CURDIR)
 include $(DEVKITPRO)/libnx/switch_rules
 
-TARGET		:=	notes-overlay
+TARGET		:=	switch-notes
 BUILD		:=	build
 SOURCES		:=	source
 DATA		:=	data
-INCLUDES	:=	include libtesla/include
+INCLUDES	:=	include
 
-APP_TITLE	:=	Notes
+APP_TITLE	:=	Switch Notes
 APP_AUTHOR	:=	You
 APP_VERSION	:=	1.0.0
-NO_ICON		:=	1
+
+PKGCFG	:= $(PORTLIBS)/bin/aarch64-none-elf-pkg-config
 
 ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
 CFLAGS	:=	-g -Wall -O2 -ffunction-sections $(ARCH) $(DEFINES)
 CFLAGS	+=	$(INCLUDE) -D__SWITCH__
-CXXFLAGS	:= $(CFLAGS) -std=gnu++20 -Wno-dangling-else
+CFLAGS	+=	$(shell $(PKGCFG) --cflags sdl2 SDL2_ttf)
+CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -lnx
+LIBS	:= $(shell $(PKGCFG) --libs --static sdl2 SDL2_ttf) -lnx
 LIBDIRS	:= $(PORTLIBS) $(LIBNX)
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
@@ -76,18 +78,20 @@ $(BUILD):
 
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).ovl $(TARGET).nacp $(TARGET).elf
+	@rm -fr $(BUILD) $(TARGET).nro $(TARGET).nacp $(TARGET).elf
 
 else
 .PHONY:	all
 
 DEPENDS	:=	$(OFILES:.o=.d)
 
-all	:	$(OUTPUT).ovl
+all	:	$(OUTPUT).nro
 
-$(OUTPUT).ovl	:	$(OUTPUT).elf $(OUTPUT).nacp
-	@elf2nro $< $@ $(NROFLAGS)
-	@echo built ... $(notdir $@)
+ifeq ($(strip $(NO_NACP)),)
+$(OUTPUT).nro	:	$(OUTPUT).elf $(OUTPUT).nacp
+else
+$(OUTPUT).nro	:	$(OUTPUT).elf
+endif
 
 $(OUTPUT).elf	:	$(OFILES)
 
